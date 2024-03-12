@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"embed"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -33,6 +34,9 @@ type Payload struct {
 }
 
 func main() {
+	userTemplate := flag.String("template", "", "Path to your HTML template")
+	flag.Parse()
+
 	var inputLines []string
 	var scanner *bufio.Scanner = bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
@@ -42,6 +46,10 @@ func main() {
 	if err := scanner.Err(); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
+	}
+
+	if len(inputLines) == 0 {
+		os.Exit(0)
 	}
 
 	var inputText string = strings.Join(inputLines, "")
@@ -60,7 +68,15 @@ func main() {
 		Items: items,
 	}
 
-	file, _ := content.ReadFile("template.html")
-	tmpl, _ := template.New("").Parse(string(file))
-	tmpl.Execute(os.Stdout, payload)
+	if *userTemplate != "" {
+		// Let's use user provided template.
+		tmpl, _ := template.ParseFiles(*userTemplate)
+		tmpl.Execute(os.Stdout, payload)
+	} else {
+		// Let's use embedded template.
+		file, _ := content.ReadFile("template.html")
+		tmpl, _ := template.New("").Parse(string(file))
+		tmpl.Execute(os.Stdout, payload)
+	}
+
 }
