@@ -6,6 +6,9 @@ to query Newsboat's SQLite3 cache database.
 
 You can use `nix-shell shell.nix` that will provide Golang and DuckDB.
 
+**Example output**: Check how the example output looks like at
+https://mitjafelicijan.github.io/nbtohtml/.
+
 ## Build and run
 
 To build the software you do `go build .`. This will produce `nbtohtml`
