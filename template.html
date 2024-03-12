@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Newsboat</title>
+
+    <style>
+      * {
+        white-space: normal;
+      }
+    
+      body {
+        font-family: sans-serif;
+        padding: 2em;
+        white-space: normal;
+      }
+      
+      .nb-article-list {
+        display: flex;
+        flex-direction: column;
+        gap: 2em;
+      }
+
+      .nb-article-list * {
+        font-size: inital!important;
+      }
+    </style>
+  </head>
+  <body>
+
+    <section class="nb-article-list">
+    {{ range .Items }}
+      <article>
+        <h1>
+          <a href="{{ .Url }}" target="_blank">{{ .Title }}</a>
+        </h1>
+        <div style="text-decoration:underline; margin-bottom:1em;">
+          {{ if ne .Author "" }}By {{ .Author }} on{{ end }}
+          {{ .PubDate }}
+        </div>
+        <div style="margin-left:4em;">
+          {{ .Content }}
+        </div>
+      </article>
+    {{ end }}
+    </section>
+    
+  </body>
+</html>

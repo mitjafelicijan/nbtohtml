@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Newsboat</title>
+
+    <style>
+      * {
+        white-space: normal;
+      }
+    
+      body {
+        font-family: sans-serif;
+        padding: 2em;
+        white-space: normal;
+      }
+      
+      .nb-article-list {
+        display: flex;
+        flex-direction: column;
+        gap: 2em;
+      }
+
+      .nb-article-list * {
+        font-size: inital!important;
+      }
+    </style>
+  </head>
+  <body>
+
+    <section class="nb-article-list">
+    
+      <article>
+        <h1>
+          <a href="https://utcc.utoronto.ca/~cks/space/blog/linux/UbuntuKernelsZFSWhereFrom" target="_blank">Where and how Ubuntu kernels get their ZFS modules</a>
+        </h1>
+        <div style="text-decoration:underline; margin-bottom:1em;">
+          By cks on
+          2024-03-07 04:59:21
+        </div>
+        <div style="margin-left:4em;">
+          <div class="wikitext"><p>One of the interesting and convenient things about Ubuntu for
+people like <a href="https://support.cs.toronto.edu/">us</a> is that they
+provide pre-built and integrated ZFS kernel modules in their
+mainline kernels. If you want ZFS on <a href="https://utcc.utoronto.ca/~cks/space/blog/linux/ZFSFileserverSetupIII">your (our) ZFS fileservers</a>, you don't have to add any extra PPA
+repositories or install any extra kernel module packages; it's just
+there. However, this leaves us with <a href="https://mastodon.social/@cks/112041217999758599">a little mystery</a>, which is how
+the ZFS modules actually get there. The reason this is a mystery
+is that <strong>the ZFS modules are not in the Ubuntu kernel source</strong>,
+or at least not in the package source.</p>
+
+<p>(One reason this matters is that you may want to see what patches
+Ubuntu has applied to their version of ZFS, because Ubuntu periodically
+backports patches to specific issues from upstream OpenZFS. If you
+go try to find ZFS patches, ZFS code, or a ZFS changelog in the
+regular Ubuntu kernel source, you will likely fail, and this will not
+be what you want.)</p>
+
+<p>Ubuntu kernels are normally signed in order to work with <a href="https://wiki.debian.org/SecureBoot">Secure
+Boot</a>. If you use 'apt source
+...' on a signed kernel, what you get is not the kernel source but
+a 'source' that fetches specific unsigned kernels and does magic
+to sign them and generate new signed binary packages. To actually
+get the kernel source, you need to follow the directions in <a href="https://wiki.ubuntu.com/Kernel/BuildYourOwnKernel">Build
+Your Own Kernel</a>
+to get the source of the unsigned kernel package. However, as
+mentioned this kernel source does not include ZFS.</p>
+
+<p>(You may be tempted to fetch the Git repository following the
+directions in <a href="https://wiki.ubuntu.com/Kernel/Dev/KernelGitGuide#Kernel.2FAction.2FGitTheSource.Obtaining_the_kernel_sources_for_an_Ubuntu_release_using_git">Obtaining the kernel sources using git</a>,
+but in my experience this may well leave you hunting around in
+confusing to try to find the branch that actually corresponds to
+even the current kernel for an Ubuntu release. Even if you have the
+Git repository cloned, downloading the source package can be easier.)</p>
+
+<p>How ZFS modules get into the built Ubuntu kernel is that during the
+package build process, <strong>the Ubuntu kernel build downloads or copies
+a specific <code>zfs-dkms</code> package version and includes it in the tree
+that kernel modules are built from</strong>, which winds up including the
+built ZFS kernel modules in the binary kernel packages. Exactly
+what version of zfs-dkms will be included is specified in
+<a href="https://git.launchpad.net/~ubuntu-kernel/ubuntu/+source/linux/+git/jammy/tree/debian/dkms-versions?h=Ubuntu-5.15.0-88.98">debian/dkms-versions</a>,
+although good luck finding an accurate version of that file in the
+Git repository on any predictable branch or in any predictable
+location.</p>
+
+<p>(The zfs-dkms package itself is the <a href="https://en.wikipedia.org/wiki/Dynamic_Kernel_Module_Support">DKMS</a> version
+of kernel ZFS modules, which means that it packages the source code
+of the modules along with directions for how DKMS should (re)build
+the binary kernel modules from the source.)</p>
+
+<p>This means that if you want to know what specific version of the
+ZFS code is included in any particular Ubuntu kernel and what changed
+in it, you need to look at the source package for zfs-dkms, which
+is called <a href="https://code.launchpad.net/ubuntu/+source/zfs-linux">zfs-linux</a>
+and has its Git repository <a href="https://git.launchpad.net/ubuntu/+source/zfs-linux">here</a>. Don't ask me
+how the branches and tags in the Git repository are managed and how
+they correspond to released package versions. My current view is
+that I will be downloading specific zfs-linux source packages as
+needed (using 'apt source zfs-linux').</p>
+
+<p>The zfs-linux source package is also used to build the zfsutils-linux
+binary package, which has the user space ZFS tools and libraries.
+You might ask if there is anything that makes zfsutils-linux versions
+stay in sync with the zfs-dkms versions included in Ubuntu kernels.
+The answer, as far as I can see, is no. Ubuntu is free to release
+new versions of zfsutils-linux and thus zfs-linux without updating
+the kernel's dkms-versions file to use the matching zfs-dkms version.
+Sufficiently cautious people may want to specifically install a
+matching version of zfsutils-linux and then hold the package.</p>
+
+<p>I was going to write something about how you get the ZFS source for
+a particular kernel version, but it turns out that there is no
+straightforward way. Contrary to what the Ubuntu documentation
+suggests, if you do 'apt source linux-image-unsigned-$(uname -r)',
+you don't get the source package for that kernel version, you get
+the source package for the current version of the 'linux' kernel
+package, at whatever is the latest released version. Similarly,
+while you can inspect that source to see what zfs-dkms version it
+was built with, 'apt get source zfs-dkms' will only give you (easy)
+access to the current version of the zfs-linux source package. If
+you ask for an older version, apt will probably tell you it can't
+find it.</p>
+
+<p>(Presumably Ubuntu has old source packages somewhere, but I don't
+know where.)</p>
+</div>
+
+        </div>
+      </article>
+    
+      <article>
+        <h1>
+          <a href="https://www.jeffgeerling.com/blog/2024/set-static-ip-address-nmtui-on-raspberry-pi-os-12-bookworm" target="_blank">Set a static IP address with nmtui on Raspberry Pi OS 12 'Bookworm'</a>
+        </h1>
+        <div style="text-decoration:underline; margin-bottom:1em;">
+          By Jeff Geerling on
+          2024-03-07 00:24:33
+        </div>
+        <div style="margin-left:4em;">
+          <span class="field field--name-title field--type-string field--label-hidden">Set a static IP address with nmtui on Raspberry Pi OS 12 'Bookworm'</span>
+
+            <div class="clearfix text-formatted field field--name-body field--type-text-with-summary field--label-hidden field__item"><p>Old advice for setting a Raspberry Pi IP address to a static IP on the Pi itself said to edit the <code>/etc/dhcpcd.conf</code> file, and add it there.</p>
+
+<p>But on Raspberry Pi OS 12 and later, <code>dhcpcd</code> is no longer used, everything goes through Network Manager, which is configured via <code>nmcli</code> or <code>nmtui</code>. If you're booting into the Pi OS desktop environment, <a href="https://forums.raspberrypi.com/viewtopic.php?p=2161661&amp;sid=a628ee29ebccfe2e0295fceee8156a08#p2161661">editing the IP settings there is pretty easy</a>.</p>
+
+<p>But setting a static IP via the command line is a little different.</p>
+
+<p>First, get the interface information—you can get a list of all interfaces with <code>nmcli device status</code>:</p>
+
+<pre><code>$ nmcli device status
+DEVICE         TYPE      STATE                   CONNECTION         
+eth0           ethernet  connected               Wired connection 1 
+lo             loopback  connected (externally)  lo                 
+wlan0          wifi      disconnected            --                 
+</code></pre>
+
+<p>In my case, I want to set an IP on <code>eth0</code>, the built-in Ethernet.</p></div>
+      <span class="field field--name-uid field--type-entity-reference field--label-hidden"><span>Jeff Geerling</span></span>
+<span class="field field--name-created field--type-created field--label-hidden"><time datetime="2024-03-06T17:24:33-06:00" title="Wednesday, March 6, 2024 - 17:24" class="datetime">March 6, 2024</time>
+</span>
+
+        </div>
+      </article>
+    
+      <article>
+        <h1>
+          <a href="https://world.hey.com/dhh/committing-to-windows-2d6388fd" target="_blank">Committing to Windows</a>
+        </h1>
+        <div style="text-decoration:underline; margin-bottom:1em;">
+          By David Heinemeier Hansson on
+          2024-03-07 01:19:31
+        </div>
+        <div style="margin-left:4em;">
+          <div class="trix-content">
+  <div>I've gone around the computing world in the past eighty hours. I've been flowing freely from Windows to Linux, sampling text editors like VSCode, neovim, Helix, and Sublime, while surveying PC laptops and desktops. It's been an adventure! But it's time to stop being a tourist. It's time to commit. <br> <br>So despite my <a href="https://world.hey.com/dhh/finding-the-last-editor-dae701cc">earlier reservations</a> about giving up on TextMate, I've decided to make Windows my new primary abode. That's Windows with Linux running inside of it as a subsystem (WSL), mind you. I would never have contemplated a switch to Windows without being able to run Linux inside it. But it's still a change of scenery you could not possibly have convinced me was in the cards a few years ago!<br> <br> Where the original expedition was motivated by Apple's callous call to nuke PWAs in the EU (which they later retracted), the present commitment is encouraged in part by Apple's atrocious handling of the Epic AB situation. I could not believe that Phil Schiller, the Apple executive in charge of App Store policy, would <a href="https://www.epicgames.com/site/en-US/news/apple-terminated-epic-s-developer-account">commit the following in writing</a>:<br> </div><blockquote> <em>Your colorful criticism of our DMA compliance plan, coupled with Epic's past practice of intentionally violating contractual provisions with which it disagrees, strongly suggest that Epic Sweden does not intend to follow the rules.</em></blockquote><div> <br>So public criticism of Apple is now motivating grounds for being denied access to the App Store? What kind of overtly authoritarian bullshit is this?<br> <br>But it's actually time to look past the negative motivations too. That's part of the reason for burning the boat, and committing to Windows for me personally. I don't want to compute purely out of spite. I want to compute out of passion. And, believe it or not, I've found a lot of surprising delights with this Windows/Linux combo that's sprouting just that kind of passion.<br> <br>Like finally figuring out that <a href="https://world.hey.com/dhh/fonts-don-t-have-to-look-awful-on-windows-564c9d2f">fonts can look gorgeous on Window</a> too, if you run it with a great high resolution screen and refrain from fractional scaling. I had this prejudice that Windows simply didn't know how to render fonts, and it turned out to be false. Awesome!<br> <br> And VSCode continues to grow on me too. The key turned out to resist recreating TextMate, and something as simple has picking a radically different color theme helped break the constant comparison. So too did diving into the configuration, turning off all the IDE-y stuff, code suggestions, and more. Just focusing on VSCode as a text editor rendered in Tokyo Nights.<br> <br> That theme inspiration came from <a href="https://twitter.com/dhh/status/1764340531877105824">my ongoing exploration of neovim</a>. It's such a radical departure from editors like TextMate and VSCode, but that's half the reason I've been having fun. Even if the extreme focus on personalized configurations isn't actually well-aligned with my beliefs in convention over configuration.<br> <br> But in the grand scheme, none of this matters. Windows is great. Running Linux inside of it at full speed is fantastic. Whether I end up with VSCode or neovim here, it's going to be fine.<br> <br> What's going to be even better than fine is using this personal change of computing to <a href="https://twitter.com/dhh/status/1765412689130758313">countering the Mac monoculture we'd be running at 37signals</a>. One encouraged and sanctioned by yours truly, mind you, but also one at odds with the fact that more than half the users on our biggest product, <a href="https://basecamp.com">Basecamp</a>, live on Windows.<br> <br> Again, it's not like I'm going to burn the MacBooks that have accumulated at our house. It's still <a href="https://world.hey.com/dhh/you-can-own-more-than-one-type-of-computer-73439146">OK to own more than one computer</a>! But one of them has to be the primary one where you're doing your work, and that one for me is now going to be running Windows.</div>
+</div>
+
+        </div>
+      </article>
+    
+      <article>
+        <h1>
+          <a href="https://utcc.utoronto.ca/~cks/space/blog/linux/EbpfExporterNotes" target="_blank">Some notes about the Cloudflare eBPF Prometheus exporter for Linux</a>
+        </h1>
+        <div style="text-decoration:underline; margin-bottom:1em;">
+          By cks on
+          2024-03-08 05:01:56
+        </div>
+        <div style="margin-left:4em;">
+          <div class="wikitext"><p>I've been a fan of <a href="https://github.com/cloudflare/ebpf_exporter">the Cloudflare eBPF Prometheus exporter</a> for some time, ever
+since I saw their example of per-disk IO latency histograms.  And
+the general idea is extremely appealing; you can gather a lot of
+information with eBPF (usually from the kernel), and the ability
+to turn it into metrics is potentially quite powerful. However,
+actually using it has always been a bit arcane, especially if you
+were stepping outside the bounds of Cloudflare's <a href="https://github.com/cloudflare/ebpf_exporter/tree/master/examples">canned examples</a>.
+So here's some notes on the current version (which is more or less
+v2.4.0 as I write this), written in part for me in the future when
+I want to fiddle with eBPF-created metrics again.</p>
+
+<p>If you build the ebpf_exporter yourself, you want to use their
+provided Makefile rather than try to do it directly. This Makefile
+will give you the choice to build a 'static' binary or a dynamic
+one (with 'make build-dynamic'); the static is the default. I put
+'static' into quotes because of <a href="https://utcc.utoronto.ca/~cks/space/blog/linux/LinuxStaticLinkingVsGlibc">the glibc NSS problem</a>; if you're on a glibc-using Linux, your
+static binary will still depend on your version of glibc. However,
+it will contain a statically linked libbpf, which will make your
+life easier. Unfortunately, building a static version is impossible
+on some Linux distributions, such as Fedora, because Fedora just
+doesn't provide static versions of some required libraries (as far
+as I can tell, libelf.a). If you have to build a dynamic executable,
+a normal ebpf_exporter build will depend on the libbpf shared
+library you can find in libbpf/dest/usr/lib. You'll need to set a
+<code>LD_LIBRARY_PATH</code> to find this copy of libbpf.so at runtime.</p>
+
+<p>(You can try building with the system libbpf, but it may not be
+recent enough for ebpf_exporter.)</p>
+
+<p>To get metrics from eBPF with ebpf_exporter, you need an eBPF
+program that collects the metrics and then a YAML configuration
+that tells ebpf_exporter how to handle what the eBPF program
+provides. The original version of ebpf_exporter had you specify
+eBPF programs in text in your (YAML) configuration file and then
+compiled them when it started. This approach has fallen out of
+favour, so now eBPF programs must be pre-compiled to special .o
+files that are loaded at runtime. I believe these .o files are
+relatively portable across systems; I've used ones built on Fedora
+39 on Ubuntu 22.04. The simplest way to build either a provided
+example or your own one is to put it in <a href="https://github.com/cloudflare/ebpf_exporter/tree/master/examples">the <code>examples</code> directory</a>
+and then do 'make &lt;name>.bpf.o'. Running 'make' in the examples
+directory will build all of the standard examples.</p>
+
+<p>To run an eBPF program or programs, you copy their &lt;name>.bpf.o and
+&lt;name>.yaml to a configuration directory of your choice, specify
+this directory in theebpf_exporter '<code>--config.dir</code>' argument,
+and then use '<code>--config.names=&lt;name>,&lt;name2>,...</code>' to say what
+programs to run. The suffix of the YAML configuration file and the
+eBPF object file are always fixed.</p>
+
+<p>The repository has <a href="https://github.com/cloudflare/ebpf_exporter#configuration-concepts">some documentation on the YAML (and eBPF) that
+you have to write to get metrics</a>.
+However, it is probably not sufficient to explain how to modify the
+examples or especially to write new ones. If you're doing this (for
+example, to revive an old example that was removed when the exporter
+moved to the current pre-compiled approach), you really want to
+read over existing examples and then copy their general structure
+more or less exactly. This is especially important because the main
+ebpf_exporter contains some special handling for at least
+histograms that assumes things are being done as in their examples.
+When reading examples, it helps to know that Cloudflare has a bunch
+of helpers that are in various header files in the examples directory.
+You want to use these helpers, not the normal, standard <a href="https://man7.org/linux/man-pages/man7/bpf-helpers.7.html">bpf helpers</a>.</p>
+
+<p>(However, although not documented in <a href="https://man7.org/linux/man-pages/man7/bpf-helpers.7.html">bpf-helpers(7)</a>,
+'<code>__sync_fetch_and_add()</code>' is a standard eBPF thing.  It is not
+so much documented as mentioned in <a href="https://docs.kernel.org/bpf/map_array.html">some kernel BPF documentation
+on arrays and maps</a>
+and in <a href="https://man7.org/linux/man-pages/man2/bpf.2.html">bpf(2)</a>.)</p>
+
+<p>One source of (e)BPF code to copy from that is generally similar
+to what you'll write for ebpf_exporter is <a href="https://github.com/iovisor/bcc/tree/master/libbpf-tools">bcc/libbpf-tools</a> (in the
+&lt;name>.bpf.c files). An eBPF program like <a href="https://github.com/iovisor/bcc/tree/master/libbpf-tools/runqlat.bpf.c">runqlat.bpf.c</a>
+will need restructuring to be used as an ebpf_exporter program,
+but it will show you what you can hook into with eBPF and how.
+Often these examples will be more elaborate than you need for
+ebpf_exporter, with more options and the ability to narrowly
+select things; you can take all of that out.</p>
+
+<p>(When setting up things like the number of histogram slots, be
+careful to copy exactly what the examples do in both your .bpf.c
+and in your YAML, mysterious '+ 1's and all.)</p>
+</div>
+
+        </div>
+      </article>
+    
+      <article>
+        <h1>
+          <a href="https://utcc.utoronto.ca/~cks/space/blog/programming/ShellPipelineStepsAndCPUs" target="_blank">A realization about shell pipeline steps on multi-core machines</a>
+        </h1>
+        <div style="text-decoration:underline; margin-bottom:1em;">
+          By cks on
+          2024-03-09 04:27:42
+        </div>
+        <div style="margin-left:4em;">
+          <div class="wikitext"><p>Over on the Fediverse, <a href="https://mastodon.social/@cks/112051065669048777">I had a realization</a>:</p>
+
+<blockquote><p>This is my face when I realize that on a big multi-core machine, I
+want to do 'sed ... | sed ... | sed ...' instead of the nominally more
+efficient 'sed -e ... -e ... -e ...' because sed is single-threaded
+and if I have several costly patterns, multiple seds will parallelize
+them across those multiple cores.</p>
+</blockquote>
+
+<p>Even when doing on the fly shell pipelines, I've tended to reflexively
+use 'sed -e ... -e ...' when I had multiple separate sed transformations
+to do, instead of putting each transformation in its own 'sed'
+command.  Similarly I sometimes try to cleverly merge multi-command
+things into one command, although usually I don't try too hard. In
+a world where you have enough cores (well, CPUs), this isn't
+necessarily the right thing to do. Most commands are single threaded
+and will use only one CPU, but every command in a pipeline can run
+on a different CPU. So splitting up a single giant 'sed' into several
+may reduce a single-core bottleneck and speed things up.</p>
+
+<p>(Giving sed multiple expressions is especially single threaded because
+sed specifically promises that they're processed in order, and sometimes
+this matters.)</p>
+
+<p>Whether this actually matters may vary a lot. In my case, <a href="https://mastodon.social/@cks/112052064868483369">it only
+made a trivial difference in the end</a>, partly because
+only one of my sed patterns was CPU-intensive (but that pattern
+alone made sed use all the CPU it could get and made it the bottleneck
+in the entire pipeline). In some cases adding more commands may add
+more in overhead than it saves from parallelism. There are no
+universal answers.</p>
+
+<p>One of my lessons learned from this is that if I'm on a machine
+with plenty of cores and doing a one-time thing, it probably isn't
+worth my while to carefully optimize how many processes are being
+run as I evolve the pipeline. I might as well jam more pipeline
+steps whenever and wherever they're convenient. If it's easy to
+move one step closer to the goal with one more pipeline step, do
+it. Even if it doesn't help, it probably won't hurt very much.</p>
+
+<p>Another lesson learned is that I might want to look for single
+threaded choke points if I've got a long-running shell pipeline.
+These are generally relatively easy to spot; just run 'top' and
+look for what's using up all of one CPU (on Linux, this is 100%
+CPU time). Sometimes this will be as easy to split as 'sed' was,
+and other times I may need to be more creative (for example, if
+zcat is hitting CPU limits, maybe <a href="https://zlib.net/pigz/">pigz</a>
+can help a bit.</p>
+
+<p>(If I have the fast disk space, possibly un-compressing the files
+in place in parallel will work. This comes up in system administration
+work more than you'd think, since we can want to search and process
+log files and they're often stored compressed.)</p>
+</div>
+<div> (<a href="https://utcc.utoronto.ca/~cks/space/blog/programming/ShellPipelineStepsAndCPUs?showcomments#comments">One comment</a>.) </div>
+        </div>
+      </article>
+    
+      <article>
+        <h1>
+          <a href="https://world.hey.com/dhh/could-apple-leave-europe-76441933" target="_blank">Could Apple leave Europe?</a>
+        </h1>
+        <div style="text-decoration:underline; margin-bottom:1em;">
+          By David Heinemeier Hansson on
+          2024-03-08 00:44:41
+        </div>
+        <div style="margin-left:4em;">
+          <div class="trix-content">
+  <div>Apple's responses to the Digital Market Act, its recent 1.8b euro fine in the Spotify case, and Epic Sweden's plans to introduce an alternative App Store in the EU have all been laced with a surprising level of spite and obstinacy. Even when Steve Jobs was pulling <a href="https://newslang.ch/wp-content/uploads/2022/06/Thoughts-on-Flash.pdf">power moves with Adobe and Flash</a> or <a href="https://www.theguardian.com/technology/2010/jul/16/apple-iphone-4-fix-free-bumper">responding to Antennagate</a>, we never saw such an institutional commitment to flipping off legislators and platform partners. It might have been ruthless, but it didn't come across as personal.<br> <br>Which is curious! Because you'd think that a creative thinker like Steve Jobs would be more likely to wear his heart on his sleeve than a professional bean counter like Tim Cook. More likely to lash out. But assuming Cook is still signing off on the company's strategy, and it's hard to imagine otherwise, his cool cucumber public persona seems to be turning into more of a hot potato with every aggrieved move Apple pulls. Which raises questions!<br> <br>Like, what's next if the EU keeps turning up the heat on that already hot potato? At what point does it start to boil? If they're already lashing out with malicious compliance, vindictive App Store evictions, and pissy press releases on account of where we are today, what might they do if the regulatory pressure in Europe doesn't relent next month, next quarter, or next year? What if the EU is actually serious about this?<br> <br>Well, Apple could quit Europe. Stop selling its products in the EU. While it's a big market, it's actually not huge, by Apple standards. Some 8-10% of revenue. So maybe $35b per year, out of some $383b in total. At what point does Cook look at that number and say &quot;not worth it, we're out&quot;?<br> <br>Prior to witnessing Apple's actions of the last few years, I would have said no way. Tim Cook just isn't the kind of CEO to make such a big move. He's too conservative, too timid, too focused on the bottom line. But that mental model has been seriously tested lately. A CEO that signs off on public letters like the <a href="https://www.apple.com/newsroom/2024/03/the-app-store-spotify-and-europes-thriving-digital-music-market/">one in response to their loss in the Spotify case</a> might actually have it in them to do something big.<br> <br>It's not without precedence that big tech companies threaten to leave a major market. Facebook famously threatened to do just that in Australia over the fight regarding newspaper royalties. But as far as I recall, nobody has actually done it. Not on a scale like Apple and the EU.<br> <br>But we've gone through a lot of surprises in the last decade. Major, world-affecting events and decisions almost nobody would have contemplated as realistic possibilities just a few years prior to them happening.<br> <br>I hope there are bureaucrats within the EU at least entertaining the possibility. Stranger things have happened. </div>
+</div>
+
+        </div>
+      </article>
+    
+      <article>
+        <h1>
+          <a href="https://world.hey.com/dhh/google-s-sad-ideological-capture-was-exactly-what-we-were-trying-to-avoid-67fad361" target="_blank">Google's sad ideological capture was exactly what we were trying to avoid</a>
+        </h1>
+        <div style="text-decoration:underline; margin-bottom:1em;">
+          By David Heinemeier Hansson on
+          2024-03-09 00:23:31
+        </div>
+        <div style="margin-left:4em;">
+          <div class="trix-content">
+  <div>The Gemini AI roll out should have been Google's day of triumph. The company made one of the smartest acquisitions in tech when <a href="https://techcrunch.com/2014/01/26/google-deepmind/">they bought DeepMind in 2014</a>. They helped set the course for the modern AI movement with <a href="https://arxiv.org/pdf/1706.03762.pdf">the Transformer paper in 2017</a>. They were poised to be right there, right at the fore font of a whole new era of computing. And then they blew it.<br> <br> If it wasn't all so terribly dark and sad, it would actually be funny. <a href="https://twitter.com/Patworx/status/1760189582870536408">Rendering George Washington as a Black man</a>. Equivocating on whether <a href="https://twitter.com/bindureddy/status/1761877215338508661">Musk's memes are worse or not than actual, literal Hitler</a>. Oh, and <a href="https://nypost.com/2024/02/23/business/woke-google-gemini-refuses-to-say-pedophilia-is-wrong-after-diverse-historical-images-debacle-individuals-cannot-control-who-they-are-attracted-to/">defending pedophilia</a>. Yeah, the Gemini launch had it all. Like a risqué stand-up comic shocking her audience for effect. Except, Gemini wasn't joking.<br> <br> In pictures and texts, it ironically made the point of the &quot;AI safety&quot; crowd incredibly well, but in the opposite direction. The threat from AI will come less from &quot;perpetuating existing biases in the world&quot; and more from &quot;injecting the biases and ideology of its overseers&quot;.<br> <br> How on earth Google could release something so twisted, so wrong to the world? The company's executives, as well as Google co-founder Sergei Brin, tried to brush it off as &quot;bugs&quot;, but few people bought that story. It seemed more likely that Gemini was working just fine by <a href="https://ai.google/responsibility/principles/">the company's muddle Google AI Principles</a>. A set of principles that unapologetically puts social justice and anti-bias instincts as prime directives #1 and #2. While failing to even mention &quot;accuracy&quot; or &quot;usefulness&quot;.<br> <br> But this part of the story has already been diagnosed to death. Gemini was a catastrophic, confidence-shattering launch. It  also caused Google's stock price to take quite the dive. Presumably because it called into question whether all of those investments and years of research will ultimately be squandered on a futile search for cosmic justice. Investors are right to worry.<br> <br> The part that's even more fascinating to me than the hilarious broken product is what kind of organization could possibly design and release such an abomination to the world. The answer came courtesy of <a href="https://www.piratewires.com/p/google-culture-of-fear">a Pirate Wires report this week</a>. It's shocking reading. Even if you've paid attention to the institutional capture by the social justice/woke/whatever ideology that <a href="https://world.hey.com/dhh/proof-of-the-peak-ede4199c">peaked</a> from 2020-2022.<br> <br> While the rest of tech has <a href="https://world.hey.com/dhh/meta-goes-no-politics-at-work-and-nobody-cares-d6409209">started to return to sanity</a> on this issue, Google clearly has not. It appears completely captured and paralyzed by this stifling ideology. An asylum run entirely by its most deranged inmates, holding everyone else captive. Even its founder duo, who seem either incapable or unwilling to act to restrain it.<br> <br> But I can totally see how they got there. How Sergei and Larry could feels like it's too late, too hard, too painful to deal with the cultural capitulation. Because that's almost how Jason and I felt at times prior to April 2021, when some of the same forces and sentiments were spreading inside our own company.<br> <br> The Pirate Wires report was entitled &quot;Google's Culture of Fear&quot;, and that's exactly what it felt like at times at our company leading up to April 2021. That the ship was being forced in a bad direction, by bad actors, with bad ideas, but that if you were going to question the compass, there'd be hell to pay. Both internally and externally. You were going to be called names. Accused of horrible things. And, really, do you want to deal with all that right now? Maybe it'd be easier to just let dragons lie.<br> <br> But the problem with ideological dragons like this is that they're never content with the political scalps or capital accumulated. There's always a hunger for more, more, more. Every little victory is an opportunity to move the goal posts further north. Make ever smaller transgressions punishable by ostracization and shame. Label even bigger swaths of normal interactions and behaviors as &quot;problematic&quot;. It just never fucking ends.<br> <br> That is unless you say &quot;enough&quot;. Enough with the nonsense. Enough with the witch hunts. Enough with the echo chamber.<br> <br> <a href="https://world.hey.com/dhh/basecamp-s-new-etiquette-regarding-societal-politics-at-work-b44bef69">That's what we did at our company in April of 2021</a>, and it hurt like hell for a couple of weeks. And that was at a small software company with no board or investors. I can't even imagine how it would have gone then if we'd had either of those. Good odds that they'd buckled under the pressure, and Jason and I would have been pushed out in a futile attempt to appease the mob.<br> <br> So I totally get why Sergei and Larry might have more than a little trepidation about rocking the boat. Google appears to be so deeply captured at this point, the rot has been left to fester for so long, that it's going to be extraordinarily painful to correct now.<br> <br> On the other hand, there's more cover. The worst of the woke scourge has indeed passed in tech. Plenty of other companies have now <a href="https://world.hey.com/dhh/where-next-for-dei-0dc866b4">dismantled their DEI bureaucracies</a> or made them a shadow of their former might. It is possible to reverse course, and it's infinitely easier to do so in 2024 than it was in 2021. But it's still a motherfucker.<br> <br> If I were a betting man, I'd bet it's going to happen, though. Maybe not as spectacularly and decisively as we did it at our company, with one clean cut. But gradually, like most major corporations have wound down the woke excesses while pretending it's all just a correction for &quot;over hiring&quot;.<br> <br> What's clear to me is that addressing this is existential to Google. Just like it was existential for us. If you follow these bad ideas to their logical conclusion, you end up with worse than useless products. You end up with a search engine that wants to lecture people rather than finding the facts. There's no mainstream market for such a bullshit product in the long run.<br> <br> Eventually the market will force the correction. But Google is a very rich company. It could coast on the fumes of its former glory for a long time. Let's hope that there's more than an empty, hollowed out shell of a company left by the time they get this right and return to sanity.<br> <br> I never thought I'd say this, but I'm actually rooting for Google on this one. Big tech is a game of thrones, and all us mere peasants are better off when the big powers all counter each other in a variety of ways. We need a stronger Google to counter a strong Apple and a strong Microsoft.<br> <br> So. Hard choices, easy life. Easy choices, hard life. We made some incredibly hard choices in April of 2021. We've lived a comparably very easy life on that vector ever since we finished the cleanup. Sergei and Larry, you guys can do it too. But you have to want to do it. You have to want Google to be relevant in AI. You have to want to make the world's information accessible and useful again, without the ideological nonsense. Vamos! </div>
+</div>
+
+        </div>
+      </article>
+    
+      <article>
+        <h1>
+          <a href="https://utcc.utoronto.ca/~cks/space/blog/sysadmin/UsageDataSomeBits" target="_blank">Some thoughts on usage data for your systems and services</a>
+        </h1>
+        <div style="text-decoration:underline; margin-bottom:1em;">
+          By cks on
+          2024-03-10 04:10:39
+        </div>
+        <div style="margin-left:4em;">
+          <div class="wikitext"><p>Some day, you may be called on by decision makers (including yourself)
+to provide some sort of usage information for things you operate so
+that you can make decisions about them. I'm not talking about <a href="https://utcc.utoronto.ca/~cks/space/blog/sysadmin/PrometheusGrafanaSetup-2019">system
+metrics</a> such as how much CPU is being
+used (although for some systems that may be part of higher level usage
+information, for example for <a href="https://utcc.utoronto.ca/~cks/space/blog/sysadmin/SlurmHowWeUseIt">our SLURM cluster</a>);
+this is more on the level of how much things are being used, by who,
+and perhaps for what. In the very old days we might have called this
+'accounting data' (and perhaps disdained collecting it unless we were
+forced to by things like chargeback policies).</p>
+
+<p>In an ideal world, you will already be generating and retaining the
+sort of usage information that can be used to make decisions about
+services. But internal services aren't necessarily automatically
+instrumented the way revenue generating things are, so you may not
+have this sort of thing built in from the start. In this case,
+you'll generally wind up hunting around for creative ways to generate
+higher level usage information from low level metrics and logs that
+you do have. When you do this, my first suggestion is <strong>write down
+how you generated your usage information</strong>. This probably won't be
+the last time you need to generate usage information, and also if
+decision makers (including you in the future) have questions about
+exactly what your numbers mean, you can go back to look at exactly
+how you generated them to provide answers.</p>
+
+<p>(Of course, your systems may have changed around by the next time you
+need to generate usage information, so your old ways don't work or
+aren't applicable. But at least you'll have something.)</p>
+
+<p>My second suggestion is to look around today to see if there's data you
+can easily collect and retain now that will let you provide better usage
+information in the future. This is obviously related to <a href="https://utcc.utoronto.ca/~cks/space/blog/sysadmin/KeepLogsLonger">keeping your
+logs longer</a>, but it also includes making sure that
+things make it to your logs (or at least to your retained logs, which
+may mean setting things to send their log data to syslog instead of
+keeping their own log files). At this point I will sing the praises of
+things like 'end of session' summary log records that put all of the
+information about a session in a single place instead of forcing you to
+put the information together from multiple log lines.</p>
+
+<p>(When you've just been through the exercise of generating usage data
+is an especially good time to do this, because you'll be familiar with
+all of the bits that were troublesome or where you could only provide
+limited data.)</p>
+
+<p>Of course there are privacy implications of retaining lots of logs
+and usage data. This may be a good time to ask around to get advance
+agreement on what sort of usage information you want to be able to
+provide and what sort you definitely don't want to have available
+for people to ask for. This is also another use for arranging to log
+your own 'end of session' summary records, because if you're doing it
+yourself you can arrange to include only the usage information you've
+decided is okay.</p>
+</div>
+
+        </div>
+      </article>
+    
+      <article>
+        <h1>
+          <a href="https://simonwillison.net/2024/Mar/8/gpt-4-barrier/#atom-entries" target="_blank">The GPT-4 barrier has finally been broken</a>
+        </h1>
+        <div style="text-decoration:underline; margin-bottom:1em;">
+          
+          2024-03-08 19:02:39
+        </div>
+        <div style="margin-left:4em;">
+          <p>Four weeks ago, GPT-4 remained the undisputed champion: consistently at the top of every key benchmark, but more importantly the clear winner in terms of "vibes". Almost everyone investing serious time exploring LLMs agreed that it was the most capable default model for the majority of tasks - and had been for more than a year.</p>
+<p>Today that barrier has finally been smashed. We have four new models, all released to the public in the last four weeks, that are benchmarking near or even above GPT-4. And the all-important vibes are good, too!</p>
+<p>Those models come from four different vendors.</p>
+<ul>
+<li>
+<a href="https://blog.google/technology/ai/google-gemini-next-generation-model-february-2024/">Google Gemini 1.5</a>, February 15th. I wrote about this <a href="https://simonwillison.net/2024/Feb/21/gemini-pro-video/">the other week</a>: the signature feature is an incredible one million long token context, nearly 8 times the length of GPT-4 Turbo. It can also process video, which it does by breaking it up into one frame per second - but you can fit a LOT of frames (258 tokens each) in a million tokens.</li>
+<li>
+<a href="https://mistral.ai/news/mistral-large/">Mistral Large</a>, February 26th. I have a big soft spot for Mistral given how exceptional their openly licensed models are - Mistral 7B runs on my iPhone, and Mixtral-8x7B is the best model I've successfully run on my laptop. Medium and Large are their two hosted but closed models, and while Large may not be quite outperform GPT-4 it's clearly in the same class. I can't wait to see what they put out next.</li>
+<li>
+<a href="https://www.anthropic.com/news/claude-3-family">Claude 3 Opus</a>, March 4th. This is just a few days old and wow: the vibes on this one are <em>really</em> strong. People I know who evaluate LLMs closely are rating it as the first clear GPT-4 beater. I've switched to it as my default model for a bunch of things, most conclusively for code - I've had several experiences recently where a complex GPT-4 prompt that produced broken JavaScript gave me a perfect working answer when run through Opus instead (<a href="https://fedi.simonwillison.net/@simon/112057299607427949">recent example</a>). I also enjoyed Anthropic research engineer Amanda Askell's detailed <a href="https://simonwillison.net/2024/Mar/7/claude-3-system-prompt-explained/">breakdown of their system prompt</a>.</li>
+<li>
+<a href="https://inflection.ai/inflection-2-5">Inflection-2.5</a>, March 7th. This one came out of left field for me: Inflection make <a href="https://hello.pi.ai/">Pi</a>, a conversation-focused chat interface that felt a little gimmicky to me when I first tried it. Then just the other day they announced that their brand new 2.5 model benchmarks favorably against GPT-4, and Ethan Mollick - one of my favourite <a href="https://interconnected.org/home/2023/03/22/tuning">LLM sommeliers</a> - noted that it <a href="https://twitter.com/emollick/status/1765801629788647468">deserves more attention</a>.</li>
+</ul>
+<p>Not every one of these models is a clear GPT-4 beater, but every one of them is a contender. And like I said, a month ago we had none at all.</p>
+<p>There are a couple of disappointments here.</p>
+<p>Firstly, none of those models are openly licensed or weights available. I imagine the resources they need to run would make them impractical for most people, but after a year that has seen enormous leaps forward in the openly licensed model category it's sad to see the very best models remain strictly proprietary.</p>
+<p>And unless I've missed something, none of these models are being transparent about their training data. This also isn't surprising: the lawsuits have started flying now over training on unlicensed copyrighted data, and negative public sentiment continues to grow over the murky ethical ground on which these models are built.</p>
+<p>It's still disappointing to me. While I'd love to see a model trained entirely on public domain or licensed content - and it feels like we should start to see some strong examples of that pretty soon - it's not clear to me that it's possible to build something that competes with GPT-4 without dipping deep into unlicensed content for the training. I'd love to be proved wrong on that!</p>
+<p>In the absence of such a <a href="https://simonwillison.net/2022/Aug/29/stable-diffusion/#ai-vegan">vegan model</a> I'll take training transparency over what we are seeing today. I use these models a lot, and knowing how a model was trained is a powerful factor in helping decide which questions and tasks a model is likely suited for. Without training transparency we are all left reading tea leaves, sharing conspiracy theories and desperately trying to figure out the vibes.</p>
+        </div>
+      </article>
+    
+      <article>
+        <h1>
+          <a href="https://utcc.utoronto.ca/~cks/space/blog/linux/SystemResponseLatencyMetrics" target="_blank">Scheduling latency, IO latency, and their role in Linux responsiveness</a>
+        </h1>
+        <div style="text-decoration:underline; margin-bottom:1em;">
+          By cks on
+          2024-03-11 04:31:46
+        </div>
+        <div style="margin-left:4em;">
+          <div class="wikitext"><p>One of the things that I do on my desktops and <a href="https://support.cs.toronto.edu/">our</a> servers is collect metrics that
+I hope will let me assess how responsive our systems are when people
+are trying to do things on them. For a long time I've been collecting
+<a href="https://utcc.utoronto.ca/~cks/space/blog/linux/PrometheusLinuxDiskIOStats">disk IO latency histograms</a>, and
+recently I've been collecting runqueue latency histograms (using
+<a href="https://utcc.utoronto.ca/~cks/space/blog/linux/EbpfExporterNotes">the eBPF exporter</a> and a modified version of
+<a href="https://github.com/iovisor/bcc/blob/master/libbpf-tools/runqlat.bpf.c">libbpf/tools/runqlat.bpf.c</a>).
+This has caused me to think about the various sorts of latency that
+affects responsiveness and how I can measure it.</p>
+
+<p>Run queue latency is the latency between when a task becomes able
+to run (or when it got preempted in the middle of running) and when
+it does run. This latency is effectively the minimum (lack of)
+response from the system and is primarily affected by CPU contention,
+since the major reason tasks have to wait to run is other tasks
+using the CPU. For obvious reasons, high(er) run queue latency is
+related to <a href="https://utcc.utoronto.ca/~cks/space/blog/linux/PSINumbersAndMeanings">CPU pressure stalls</a>, but a
+histogram can show you more information than an aggregate number.
+I expect run queue latency to be what matters most for a lot of
+programs that mostly talk to things over some network (including
+talking to other programs on the same machine), and perhaps some
+of their time burning CPU furiously. If your web browser can't get
+its rendering process running promptly after the HTML comes in, or
+if it gets preempted while running all of that Javascript, this
+will show up in run queue latency. The same is true for your window
+manager, which is probably not doing much IO.</p>
+
+<p>Disk IO latency is the lowest level indicator of things having to
+wait on IO; it sets a lower bound on how little latency processes
+doing IO can have (assuming that they do actual disk IO). However,
+direct disk IO is only one level of the Linux IO system, and the
+Linux IO system sits underneath filesystems. What actually matters
+for responsiveness and latency is generally how long user-level
+filesystem operations take. In an environment with sophisticated,
+multi-level filesystems that have complex internal behavior (such
+as <a href="https://utcc.utoronto.ca/~cks/space/blog/linux/ZFSGlobalZILInformation">ZFS and its ZIL</a>), the actual disk
+IO time may only be a small portion of the user-level timing,
+especially for things like <code>fsync()</code>.</p>
+
+<p>(Some user-level operations may also not do any disk IO at all
+before they return from the kernel (<a href="https://utcc.utoronto.ca/~cks/space/blog/linux/UserIOCanBeSystemTime">for example</a>).
+A <code>read()</code> might be satisfied from the kernel's caches, and a
+<code>write()</code> might simply copy the data into the kernel and schedule
+disk IO later. This is where histograms and related measurements
+become much more useful than averages.)</p>
+
+<p>Measuring user level filesystem latency can be done through eBPF,
+to at least some degree; <a href="https://github.com/iovisor/bcc/blob/master/libbpf-tools/vfsstat.bpf.c">libbpf-tools/vfsstat.bpf.c</a>
+hooks a number of kernel vfs_* functions in order to just count
+them, and you could convert this into some sort of histogram. Doing
+this on a 'per filesystem mount' basis is probably going to be
+rather harder. On the positive side for us, hooking the vfs_*
+functions does cover the activity a NFS server does for NFS clients
+as well as truly local user level activity. Because there are a
+number of systems where we really do care about the latency that
+people experience and want to monitor it, I'll probably build some
+kind of vfs operation latency histogram <a href="https://utcc.utoronto.ca/~cks/space/blog/linux/EbpfExporterNotes">eBPF exporter program</a>, although most likely only for selected VFS
+operations (since there are a lot of them).</p>
+
+<p>I think that the straightforward way of measuring user level IO
+latency (by tracking the time between entering and exiting a top
+level vfs_* function) will wind up including run queue latency
+as well. You will get, basically, the time it takes to prepare and
+submit the IO inside the kernel, the time spent waiting for it, and
+then after the IO completes the time the task spends waiting inside
+the kernel before it's able to run.</p>
+
+<p>Because of <a href="https://utcc.utoronto.ca/~cks/space/blog/linux/LinuxMultiCPUIowait">how Linux defines iowait</a>, the
+higher your iowait numbers are, the lower the run queue latency
+portion of the total time will be, because iowait only happens on
+idle CPUs and idle CPUs are immediately available to run tasks when
+their IO completes. You may want to look at <a href="https://utcc.utoronto.ca/~cks/space/blog/linux/PSINumbersAndMeanings">io pressure stall
+information</a> for a more accurate track of
+when things are blocked on IO.</p>
+
+<p>A complication of measuring user level IO latency is that not all
+user visible IO happens through <code>read()</code> and <code>write()</code>. Some of it
+happens through accessing <code>mmap()</code>'d objects, and under memory
+pressure some of it will be in the kernel paging things back in
+from wherever they wound up. I don't know if there's any particularly
+easy way to hook into this activity.</p>
+</div>
+
+        </div>
+      </article>
+    
+      <article>
+        <h1>
+          <a href="https://emacsredux.com/blog/2024/03/11/tracking-world-time-with-emacs/" target="_blank">Tracking World Time with Emacs</a>
+        </h1>
+        <div style="text-decoration:underline; margin-bottom:1em;">
+          By Bozhidar Batsov on
+          2024-03-11 10:38:00
+        </div>
+        <div style="margin-left:4em;">
+          <p>In today’s highly connected world it’s often useful to keep track of time in several
+time zones. I work in a company with employees all over the world, so I probably keep track
+of more time zones than most people.</p>
+
+<p>So, what are the best ways to do this? I know what you’re thinking - let’s just
+buy an Omega Aqua Terra Worldtimer mechanical watch for $10,000 and be done with
+it!<sup id="fnref:1" role="doc-noteref"><a href="#fn:1" class="footnote" rel="footnote">1</a></sup> While this will definitely get the job done and improve the looks of
+your wrist immensely, there’s a cheaper and more practical option for you -
+Emacs. Did you know that Emacs has a command named <code class="language-plaintext highlighter-rouge">world-clock</code> that does
+exactly what we want?<sup id="fnref:2" role="doc-noteref"><a href="#fn:2" class="footnote" rel="footnote">2</a></sup> If you invoke it you’ll see something like this:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Seattle   Monday 11 March 02:45 PDT
+New York  Monday 11 March 05:45 EDT
+London    Monday 11 March 09:45 GMT
+Paris     Monday 11 March 10:45 CET
+Bangalore Monday 11 March 15:15 IST
+Tokyo     Monday 11 March 18:45 JST
+</code></pre></div></div>
+
+<p>Hmm, looks OK but the greatest city in the world (Sofia, Bulgaria) is missing from
+the list… That’s totally unacceptable! We can fix this by tweaking the
+variable <code class="language-plaintext highlighter-rouge">world-clock-list</code>:</p>
+
+<div class="language-emacs-lisp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">(</span><span class="k">setq</span> <span class="nv">world-clock-list</span>
+      <span class="o">'</span><span class="p">((</span><span class="s">"America/Los_Angeles"</span> <span class="s">"Seattle"</span><span class="p">)</span>
+        <span class="p">(</span><span class="s">"America/New_York"</span> <span class="s">"New York"</span><span class="p">)</span>
+        <span class="p">(</span><span class="s">"Europe/London"</span> <span class="s">"London"</span><span class="p">)</span>
+        <span class="p">(</span><span class="s">"Europe/Paris"</span> <span class="s">"Paris"</span><span class="p">)</span>
+        <span class="p">(</span><span class="s">"Europe/Sofia"</span> <span class="s">"Sofia"</span><span class="p">)</span>
+        <span class="p">(</span><span class="s">"Asia/Calcutta"</span> <span class="s">"Bangalore"</span><span class="p">)</span>
+        <span class="p">(</span><span class="s">"Asia/Tokyo"</span> <span class="s">"Tokyo"</span><span class="p">)))</span>
+</code></pre></div></div>
+
+<p>Let’s try <code class="language-plaintext highlighter-rouge">M-x world-clock</code> again now:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Seattle      Monday 11 March 02:51 PDT
+New York     Monday 11 March 05:51 EDT
+London       Monday 11 March 09:51 GMT
+Paris        Monday 11 March 10:51 CET
+Sofia        Monday 11 March 11:51 EET
+Bangalore    Monday 11 March 15:21 IST
+Tokyo        Monday 11 March 18:51 JST
+</code></pre></div></div>
+
+<p>Much better!</p>
+
+<p>By the way, you don’t really have to edit <code class="language-plaintext highlighter-rouge">world-clock-list</code>, as by default it’s configured to
+mirror the value of <code class="language-plaintext highlighter-rouge">zoneinfo-style-world-list</code>. The choice is yours.</p>
+
+<p>You can also configure the way the world time entries are displayed using <code class="language-plaintext highlighter-rouge">world-clock-time-format</code>. Let’s switch to a style with shorter day and month names:</p>
+
+<div class="language-emacs-lisp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">(</span><span class="k">setq</span> <span class="nv">world-clock-time-format</span> <span class="s">"%a %d %b %R %Z"</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>This will result in:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Seattle      Mon 11 Mar 06:06 PDT
+New York     Mon 11 Mar 09:06 EDT
+London       Mon 11 Mar 13:06 GMT
+Paris        Mon 11 Mar 14:06 CET
+Sofia        Mon 11 Mar 15:06 EET
+Bangalore    Mon 11 Mar 18:36 IST
+Tokyo        Mon 11 Mar 22:06 JST
+</code></pre></div></div>
+
+<p>Check out the docstring of <code class="language-plaintext highlighter-rouge">format-time-string</code> (<code class="language-plaintext highlighter-rouge">C-h f</code> <code class="language-plaintext highlighter-rouge">format-time-string</code>) for more details, as the options here are numerous.</p>
+
+<p>That’s all I have for you today. I hope you learned something useful. Keep hacking!</p>
+
+<div class="footnotes" role="doc-endnotes">
+  <ol>
+    <li id="fn:1" role="doc-endnote">
+      <p>Mechanical watches are another passion of mine. <a href="#fnref:1" class="reversefootnote" role="doc-backlink">&#8617;</a></p>
+    </li>
+    <li id="fn:2" role="doc-endnote">
+      <p>It was named <code class="language-plaintext highlighter-rouge">display-time-world</code> before Emacs 28.1. The command was originally introduced in Emacs 23.1. <a href="#fnref:2" class="reversefootnote" role="doc-backlink">&#8617;</a></p>
+    </li>
+  </ol>
+</div>
+        </div>
+      </article>
+    
+      <article>
+        <h1>
+          <a href="https://utcc.utoronto.ca/~cks/space/blog/sysadmin/UsageDataWhyCare" target="_blank">Why we should care about usage data for our internal services</a>
+        </h1>
+        <div style="text-decoration:underline; margin-bottom:1em;">
+          By cks on
+          2024-03-12 03:47:02
+        </div>
+        <div style="margin-left:4em;">
+          <div class="wikitext"><p>I recently wrote about <a href="https://utcc.utoronto.ca/~cks/space/blog/sysadmin/UsageDataSomeBits">some practical-focused thoughts on usage
+data for your services</a>. But there's a broader
+issue about usage data for services and having or not having it.
+My sense is that for a lot of sysadmins, building things to collect
+usage data feels like accounting work and likely to lead to unpleasant
+and damaging things, like internal chargebacks (<a href="https://utcc.utoronto.ca/~cks/space/blog/tech/UniversityDeadlyCharging">which have create
+various problems</a>, <a href="https://utcc.utoronto.ca/~cks/space/blog/tech/ChargingProblem">and also</a>). However, I think we should strongly
+consider routinely gathering this data anyway, for fundamentally
+the same reasons as <a href="https://utcc.utoronto.ca/~cks/space/blog/sysadmin/SSLLogConnectionInfo">you should collect information on what TLS
+protocols and ciphers are being used by your people and software</a>.</p>
+
+<p>We periodically face decisions both obvious and subtle about what
+to do about services and the things they run on. Do we spend the
+money to buy new hardware, do we spend the time to upgrade the
+operating system or the version of the third party software, do we
+need to closely monitor this system or service, does it need to be
+optimized or be given better hardware, and so on. Conversely, maybe
+this is now a little-used service that can be scaled down, dropped,
+or simplified. In general, the big question is <strong>do we need to care
+about this service, and if so how much</strong>. High level usage data is
+what gives you most of the real answers.</p>
+
+<p>(In some environments one fate for narrowly used services is to be made
+the responsibility of the people or groups who are the service's big
+users, instead of something that is provided on a larger and higher
+level.)</p>
+
+<p>Your system and application metrics can provide you some basic
+information, like whether your systems are using CPU and memory and
+disk space, and perhaps how that usage is changing over a relatively
+long time base (if you keep metrics data long enough). But they
+can't really tell you why that is happening or not happening, or
+who is using your services, and deriving usage information from
+things like CPU utilization requires either knowing things about
+how your systems perform or assuming them (eg, assuming you can
+estimate service usage from CPU usage because you're sure it uses
+a visible amount of CPU time). Deliberately collecting actual
+usage gives you direct answers.</p>
+
+<p>Knowing who is using your services and who is not also gives you
+the opportunity to talk to both groups about what they like about
+your current services, what they'd like you to add, what pieces of
+your service they care about, what they need, and perhaps what's
+keeping them from using some of your services. If you don't have
+usage data and don't actually ask people, you're flying relatively
+blind on all of these questions.</p>
+
+<p>Of course collecting usage data has its traps. One of them is that what
+usage data you collect is often driven by what sort of usage you think
+matters, and in turn this can be driven by how you expect people to use
+your services and what you think they care about. Or to put it another
+way, you're measuring what you assume matters and you're assuming what
+you don't measure doesn't matter. You may be wrong about that, which is
+one reason why talking to people periodically is useful.</p>
+
+<p>PS: In theory, gathering usage data is separate from the question
+of <a href="https://utcc.utoronto.ca/~cks/space/blog/tech/DangerousMetrics">whether you should pay attention to it</a>,
+where the answer may well be that <a href="https://utcc.utoronto.ca/~cks/space/blog/sysadmin/MetricsAttractAttention">you should ignore that shiny
+new data</a>. In practice, well, people are
+bad at staying away from shiny things. Perhaps it's not a bad thing
+to have your usage data require some effort to assemble.</p>
+
+<p>(This is partly written to persuade myself of this, because maybe we
+want to routinely collect and track more usage data than we currently
+do.)</p>
+</div>
+
+        </div>
+      </article>
+    
+      <article>
+        <h1>
+          <a href="https://www.jeffgeerling.com/blog/2024/fixing-nginx-error-undefined-constant-pdomysqlattrusebufferedquery" target="_blank">Fixing nginx Error: Undefined constant PDO::MYSQL_ATTR_USE_BUFFERED_QUERY</a>
+        </h1>
+        <div style="text-decoration:underline; margin-bottom:1em;">
+          By Jeff Geerling on
+          2024-03-12 05:57:08
+        </div>
+        <div style="margin-left:4em;">
+          <span class="field field--name-title field--type-string field--label-hidden">Fixing nginx Error: Undefined constant PDO::MYSQL_ATTR_USE_BUFFERED_QUERY</span>
+
+            <div class="clearfix text-formatted field field--name-body field--type-text-with-summary field--label-hidden field__item"><p>I install a <em>lot</em> of Drupal sites day to day, especially when I'm doing dev work.</p>
+
+<p>In the course of doing that, sometimes I'll be working on infrastructure—whether that's an Ansible playbook to configure a Docker container, or testing something on a fresh server or VM.</p>
+
+<p>In any case, I run into the following error every so often in my Nginx <code>error.log</code>:</p>
+
+<pre><code>"php-fpm" nginx Error: Undefined constant PDO::MYSQL_ATTR_USE_BUFFERED_QUERY
+</code></pre>
+
+<p>The funny thing is, I <em>don't</em> have that error when I'm running CLI commands, like <code>vendor/bin/drush</code>, and can even install and manage the Drupal site and database on the CLI.</p>
+
+<p>The problem, in my case, was that I had applied <code>php-fpm</code> configs using Ansible, but in my playbook I hadn't restarted <code>php-fpm</code> (in my case, on Ubuntu 22.04, <code>php8.3-fpm</code>) after doing so. So FPM was running with outdated config and didn't know that the MySQL/MariaDB drivers were even present on the system.</p></div>
+      <span class="field field--name-uid field--type-entity-reference field--label-hidden"><span>Jeff Geerling</span></span>
+<span class="field field--name-created field--type-created field--label-hidden"><time datetime="2024-03-11T23:57:08-05:00" title="Monday, March 11, 2024 - 23:57" class="datetime">March 11, 2024</time>
+</span>
+
+        </div>
+      </article>
+    
+    </section>
+    
+  </body>
+</html>
